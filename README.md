@@ -1,1 +1,1 @@
-# simon-senses
+#[ModKit Wiki](../../wiki)
