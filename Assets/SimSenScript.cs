@@ -1,6 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
+using System.Text.RegularExpressions;
 using UnityEngine;
 
 public class SimSenScript : MonoBehaviour {
@@ -19,6 +19,7 @@ public class SimSenScript : MonoBehaviour {
     public Material[] bulbcols;
     public Material[] io;
     public TextMesh cbtext;
+    public Collider[] colliders;
 
     private bool cb;
     private readonly Color32[] cols = new Color32[8] { new Color32(255, 0, 0, 255), new Color32(255, 71, 0, 255), new Color32(255, 218, 0, 255), new Color32(114, 255, 0, 255), new Color32(0, 255, 255, 255), new Color32(0, 74, 255, 255), new Color32(104, 0, 255, 255), new Color32(255, 35, 255, 255)};
@@ -27,6 +28,7 @@ public class SimSenScript : MonoBehaviour {
     private int[] flashes = new int[7];
     private bool unlock;
     private bool reset;
+    private RaycastHit[] allHit;
 
     private static int moduleIDCounter;
     private int moduleID;
@@ -38,10 +40,63 @@ public class SimSenScript : MonoBehaviour {
             StartCoroutine(Strike());
     }
 
+    private void Update()
+    {
+        if (!TwitchPlaysActive)
+            allHit = Physics.RaycastAll(Camera.main.ScreenPointToRay(Input.mousePosition));
+        else
+            allHit = Physics.RaycastAll(new Ray(tpCursor.transform.position, -transform.up));
+        bool found = false;
+        bool found2 = false;
+        bool tpHitWall = false;
+        for (int i = 0; i < allHit.Length; i++)
+        {
+            if (allHit[i].collider.name == colliders[0].name)
+                found = true;
+            if (TwitchPlaysActive)
+            {
+                for (int j = 1; j < 9; j++)
+                {
+                    if (colliders[j].name == allHit[i].collider.name)
+                    {
+                        tpHitWall = true;
+                        break;
+                    }
+                }
+                for (int j = 9; j < colliders.Length; j++)
+                {
+                    if (colliders[j].name == allHit[i].collider.name)
+                    {
+                        tpButton = j - 9;
+                        found2 = true;
+                        break;
+                    }
+                }
+            }
+        }
+        if (mazereveal[8].enabled && !reset && (!found || tpHitWall))
+            StartCoroutine(Strike());
+        if (TwitchPlaysActive)
+        {
+            tpCursor.transform.localPosition = tpAnchor.localPosition;
+            if (!tpTestCursor.activeSelf)
+                tpTestAnchor.localPosition = tpAnchor.localPosition;
+            tpTestCursor.transform.localPosition = tpTestAnchor.localPosition;
+            if (!found)
+                tpOffField = true;
+            else
+                tpOffField = false;
+            if (!found2)
+                tpButton = -1;
+        }
+    }
+
     private void Start()
     {
         moduleID = ++moduleIDCounter;
         cb = cbmode.ColorblindModeActive;
+        foreach (Collider c in colliders)
+            c.name = "ssn" + c.name + moduleID;
         barr = barr.Shuffle();
         foreach(KMSelectable m in mazewalls)
         {
@@ -125,6 +180,16 @@ public class SimSenScript : MonoBehaviour {
                 return false;
             };
         }
+        module.OnActivate += TPCheck;
+    }
+
+    private void TPCheck()
+    {
+        if (TwitchPlaysActive)
+        {
+            tpCursor.SetActive(true);
+            tpSpeed = Random.Range(0.025f, 0.035f);
+        }
     }
 
     private void Setup()
@@ -193,6 +258,130 @@ public class SimSenScript : MonoBehaviour {
             stage[1] = 0;
             StartCoroutine("Seq");
             reset = false;
+        }
+    }
+
+    //twitch plays
+    public GameObject tpCursor;
+    public Transform tpAnchor;
+    public GameObject tpTestCursor;
+    public Transform tpTestAnchor;
+    private bool TwitchPlaysActive;
+    private bool tpOffField;
+    private float tpTime;
+    private float tpSpeed;
+    private int tpButton = -1;
+    private bool TwitchShouldCancelCommand;
+    #pragma warning disable 414
+    private readonly string TwitchHelpMessage = @"!{0} time <seconds> [Sets the amount of time the cursor moves in seconds] | !{0} angle <degrees> [Sets the movement direction of the cursor in degrees starting at 0 from north] | !{0} test [Test to see where the cursor will go with the current settings] | !{0} move [Moves the cursor with the current settings] | !{0} press [Presses the button the cursor is currently over] | !{0} colorblind [Toggles colorblind mode] | On Twitch Plays this module uses a fake cursor that can move at a random fixed speed";
+    #pragma warning restore 414
+    IEnumerator ProcessTwitchCommand(string command)
+    {
+        if (Regex.IsMatch(command, @"^\s*colorblind|cb\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+        {
+            yield return null;
+            cb = !cb;
+            yield break;
+        }
+        if (Regex.IsMatch(command, @"^\s*press\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+        {
+            if (reset)
+                yield return "sendtochaterror You cannot press a button while the module is resetting!";
+            else if (tpButton == -1)
+                yield return "sendtochaterror The cursor is not currently over a button!";
+            else
+            {
+                yield return null;
+                buttons[tpButton].OnInteract();
+            }
+            yield break;
+        }
+        if (Regex.IsMatch(command, @"^\s*move\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+        {
+            if (reset)
+                yield return "sendtochaterror You cannot move the cursor while the module is resetting!";
+            else
+            {
+                yield return null;
+                float t = 0f;
+                while (t < tpTime)
+                {
+                    yield return null;
+                    t += Time.deltaTime;
+                    if (tpOffField)
+                    {
+                        tpAnchor.localPosition = new Vector3(0, 0.0183f, 0);
+                        yield break;
+                    }
+                    tpAnchor.Translate(Vector3.forward * Time.deltaTime * tpSpeed);
+                    if (reset)
+                    {
+                        yield return "strike";
+                        yield break;
+                    }
+                }
+            }
+            yield break;
+        }
+        if (Regex.IsMatch(command, @"^\s*test\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+        {
+            yield return null;
+            tpTestCursor.SetActive(true);
+            float t = 0f;
+            while (t < tpTime)
+            {
+                yield return null;
+                t += Time.deltaTime;
+                if (TwitchShouldCancelCommand)
+                    break;
+                tpTestAnchor.Translate(Vector3.forward * Time.deltaTime * tpSpeed);
+            }
+            tpTestCursor.SetActive(false);
+            tpTestAnchor.localPosition = tpAnchor.localPosition;
+            if (TwitchShouldCancelCommand)
+                yield return "cancelled";
+            yield break;
+        }
+        string[] parameters = command.Split(' ');
+        if (Regex.IsMatch(parameters[0], @"^\s*time\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+        {
+            if (parameters.Length == 1)
+                yield return "sendtochaterror Please specify a time in seconds!";
+            else if (parameters.Length > 2)
+                yield return "sendtochaterror Too many parameters!";
+            else
+            {
+                float time = -1;
+                if (!float.TryParse(parameters[1], out time))
+                {
+                    yield return "sendtochaterror!f The specified time '" + parameters[1] + "' is invalid!";
+                    yield break;
+                }
+                yield return null;
+                tpTime = time;
+            }
+            yield break;
+        }
+        if (Regex.IsMatch(parameters[0], @"^\s*angle\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+        {
+            if (parameters.Length == 1)
+                yield return "sendtochaterror Please specify the angle in degrees!";
+            else if (parameters.Length > 2)
+                yield return "sendtochaterror Too many parameters!";
+            else
+            {
+                int angle = -1;
+                if (!int.TryParse(parameters[1], out angle))
+                {
+                    yield return "sendtochaterror!f The specified angle '" + parameters[1] + "' is invalid!";
+                    yield break;
+                }
+                yield return null;
+                Vector3 newRot = new Vector3(0, angle, 0);
+                tpAnchor.transform.localEulerAngles = newRot;
+                tpTestAnchor.transform.localEulerAngles = newRot;
+            }
+            yield break;
         }
     }
 }
