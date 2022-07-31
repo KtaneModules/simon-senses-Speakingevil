@@ -106,7 +106,7 @@ public class SimSenScript : MonoBehaviour {
                   StartCoroutine(Strike());
             };
         }
-        modSelect.OnDefocus += delegate () { StartCoroutine(Strike()); };
+        modSelect.OnDefocus += delegate () { if (!TwitchPlaysActive) StartCoroutine(Strike()); };
         mazereveal[8].enabled = false;
         foreach(Light l in lights)
         {
@@ -273,7 +273,7 @@ public class SimSenScript : MonoBehaviour {
     private int tpButton = -1;
     private bool TwitchShouldCancelCommand;
     #pragma warning disable 414
-    private readonly string TwitchHelpMessage = @"!{0} time <seconds> [Sets the amount of time the cursor moves in seconds] | !{0} angle <degrees> [Sets the movement direction of the cursor in degrees starting at 0 from north] | !{0} test [Test to see where the cursor will go with the current settings] | !{0} move [Moves the cursor with the current settings] | !{0} press [Presses the button the cursor is currently over] | !{0} colorblind [Toggles colorblind mode] | On Twitch Plays this module uses a fake cursor that can move at a random fixed speed";
+    private readonly string TwitchHelpMessage = @"!{0} time <seconds> [Sets the amount of time the cursor moves in seconds] | !{0} angle <degrees> [Sets the movement direction of the cursor in degrees starting at 0 from north] | !{0} test [Test to see where the cursor will go with the current settings] | !{0} move [Moves the cursor with the current settings] | !{0} press [Presses the button the cursor is currently over] | !{0} colorblind [Toggles colorblind mode] | On Twitch Plays this module uses a fake cursor that moves at a random fixed speed and strikes will not occur for deselecting the module";
     #pragma warning restore 414
     IEnumerator ProcessTwitchCommand(string command)
     {
