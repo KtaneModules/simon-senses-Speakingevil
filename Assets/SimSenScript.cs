@@ -79,9 +79,6 @@ public class SimSenScript : MonoBehaviour {
         if (TwitchPlaysActive)
         {
             tpCursor.transform.localPosition = tpAnchor.localPosition;
-            if (!tpTestCursor.activeSelf)
-                tpTestAnchor.localPosition = tpAnchor.localPosition;
-            tpTestCursor.transform.localPosition = tpTestAnchor.localPosition;
             if (!found)
                 tpOffField = true;
             else
@@ -264,15 +261,12 @@ public class SimSenScript : MonoBehaviour {
     //twitch plays
     public GameObject tpCursor;
     public Transform tpAnchor;
-    public GameObject tpTestCursor;
-    public Transform tpTestAnchor;
     private bool TwitchPlaysActive;
     private bool tpOffField;
     private float tpSpeed;
     private int tpButton = -1;
-    private bool TwitchShouldCancelCommand;
     #pragma warning disable 414
-    private readonly string TwitchHelpMessage = @"!{0} <actions> [Makes the cursor perform the specified actions] | !{0} test <actions> [Tests the specified actions with a phantom cursor] | !{0} colorblind [Toggles colorblind mode] | On Twitch Plays this module uses a fake cursor that moves at a random fixed speed | Actions that can the cursor can do are a press or movement, presses are specified with 'press' while movements are a direction in degrees from north and a time in seconds separated by a space | Actions can be chained, for example: !{0} 45 2.5; -80 5; press";
+    private readonly string TwitchHelpMessage = @"!{0} <actions> [Makes the cursor perform the specified actions] | !{0} colorblind [Toggles colorblind mode] | On Twitch Plays this module uses a fake cursor that moves at a random fixed speed | Actions that can the cursor can do are a press or movement, presses are specified with 'press' while movements are a direction in degrees from north and a time in seconds separated by a space | Actions can be chained, for example: !{0} 45 2.5; -80 5; press";
     #pragma warning restore 414
     IEnumerator ProcessTwitchCommand(string command)
     {
@@ -282,12 +276,6 @@ public class SimSenScript : MonoBehaviour {
             yield return null;
             cb = !cb;
             yield break;
-        }
-        bool isTest = false;
-        if (command.ToLowerInvariant().StartsWith("test "))
-        {
-            isTest = true;
-            command = command.Substring(5);
         }
         List<string> tpAngles = new List<string>();
         List<string> tpTimes = new List<string>();
@@ -325,80 +313,35 @@ public class SimSenScript : MonoBehaviour {
             }
         }
         yield return null;
-        if (isTest)
-            tpTestCursor.SetActive(true);
         for (int i = 0; i < parameters.Length; i++)
         {
             if (tpTimes[i] == "p")
             {
-                if (isTest)
-                {
-                    int index = -1;
-                    RaycastHit[] allHit = Physics.RaycastAll(new Ray(tpTestCursor.transform.position, -transform.up));
-                    for (int k = 0; k < allHit.Length; k++)
-                    {
-                        for (int j = 9; j < colliders.Length; j++)
-                        {
-                            if (colliders[j].name == allHit[k].collider.name)
-                            {
-                                index = j;
-                                break;
-                            }
-                        }
-                    }
-                    if (index != -1)
-                        yield return "sendtochat The phantom cursor successfully \"pressed\" the " + colliders[index].name.Substring(9, 3) + " button on Module {1} (Simon Senses)!";
-                    else
-                        yield return "sendtochat The phantom cursor failed to \"press\" any button on Module {1} (Simon Senses)!";
-                }
-                else
-                {
-                    if (tpButton != -1)
-                        buttons[tpButton].OnInteract();
-                }
+                if (tpButton != -1)
+                    buttons[tpButton].OnInteract();
             }
             else
             {
                 Vector3 newRot = new Vector3(0, int.Parse(tpAngles[i]), 0);
                 tpAnchor.transform.localEulerAngles = newRot;
-                tpTestAnchor.transform.localEulerAngles = newRot;
                 float t = 0f;
                 while (t < float.Parse(tpTimes[i]))
                 {
                     yield return null;
                     t += Time.deltaTime;
-                    if (isTest)
+                    if (tpOffField)
                     {
-                        if (TwitchShouldCancelCommand)
-                        {
-                            i = parameters.Length;
-                            break;
-                        }
-                        tpTestAnchor.Translate(Vector3.forward * Time.deltaTime * tpSpeed);
+                        tpAnchor.localPosition = new Vector3(0, 0.0183f, 0);
+                        yield break;
                     }
-                    else
+                    tpAnchor.Translate(Vector3.forward * Time.deltaTime * tpSpeed);
+                    if (reset)
                     {
-                        if (tpOffField)
-                        {
-                            tpAnchor.localPosition = new Vector3(0, 0.0183f, 0);
-                            yield break;
-                        }
-                        tpAnchor.Translate(Vector3.forward * Time.deltaTime * tpSpeed);
-                        if (reset)
-                        {
-                            yield return "strike";
-                            yield break;
-                        }
+                        yield return "strike";
+                        yield break;
                     }
                 }
             }
-        }
-        if (isTest)
-        {
-            tpTestCursor.SetActive(false);
-            tpTestAnchor.localPosition = tpAnchor.localPosition;
-            if (TwitchShouldCancelCommand)
-                yield return "cancelled";
         }
     }
 }

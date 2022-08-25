@@ -8922,8 +8922,6 @@ MonoBehaviour:
   - {fileID: 64577395645034932}
   tpCursor: {fileID: 1499532432564704}
   tpAnchor: {fileID: 4735400746159994}
-  tpTestCursor: {fileID: 1030886948411520}
-  tpTestAnchor: {fileID: 4572070805729996}
 --- !u!114 &114893097873682794
 MonoBehaviour:
   m_ObjectHideFlags: 1
