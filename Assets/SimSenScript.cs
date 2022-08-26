@@ -266,7 +266,7 @@ public class SimSenScript : MonoBehaviour {
     private float tpSpeed;
     private int tpButton = -1;
     #pragma warning disable 414
-    private readonly string TwitchHelpMessage = @"!{0} <actions> [Makes the cursor perform the specified actions] | !{0} colorblind [Toggles colorblind mode] | On Twitch Plays this module uses a fake cursor that moves at a random fixed speed | Actions that can the cursor can do are a press or movement, presses are specified with 'press' while movements are a direction in degrees from north and a time in seconds separated by a space | Actions can be chained, for example: !{0} 45 2.5; -80 5; press";
+    private readonly string TwitchHelpMessage = @"!{0} <actions> [Makes the cursor perform the specified actions] | !{0} colorblind [Toggles colorblind mode] | On Twitch Plays this module uses a fake cursor that moves at a random fixed speed | Actions that the cursor can do are a press or movement, presses are specified with 'press' while movements are a direction in degrees from north and a time in seconds separated by a space | Actions can be chained, for example: !{0} 45 2.5; -80 5; press";
     #pragma warning restore 414
     IEnumerator ProcessTwitchCommand(string command)
     {
