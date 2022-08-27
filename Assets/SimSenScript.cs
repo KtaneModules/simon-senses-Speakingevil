@@ -79,9 +79,6 @@ public class SimSenScript : MonoBehaviour {
         if (TwitchPlaysActive)
         {
             tpCursor.transform.localPosition = tpAnchor.localPosition;
-            if (!tpTestCursor.activeSelf)
-                tpTestAnchor.localPosition = tpAnchor.localPosition;
-            tpTestCursor.transform.localPosition = tpTestAnchor.localPosition;
             if (!found)
                 tpOffField = true;
             else
@@ -106,7 +103,7 @@ public class SimSenScript : MonoBehaviour {
                   StartCoroutine(Strike());
             };
         }
-        modSelect.OnDefocus += delegate () { if (!TwitchPlaysActive) StartCoroutine(Strike()); };
+        modSelect.OnDefocus += delegate () { StartCoroutine(Strike()); };
         mazereveal[8].enabled = false;
         foreach(Light l in lights)
         {
@@ -264,47 +261,71 @@ public class SimSenScript : MonoBehaviour {
     //twitch plays
     public GameObject tpCursor;
     public Transform tpAnchor;
-    public GameObject tpTestCursor;
-    public Transform tpTestAnchor;
     private bool TwitchPlaysActive;
     private bool tpOffField;
-    private float tpTime;
     private float tpSpeed;
     private int tpButton = -1;
-    private bool TwitchShouldCancelCommand;
     #pragma warning disable 414
-    private readonly string TwitchHelpMessage = @"!{0} time <seconds> [Sets the amount of time the cursor moves in seconds] | !{0} angle <degrees> [Sets the movement direction of the cursor in degrees starting at 0 from north] | !{0} test [Test to see where the cursor will go with the current settings] | !{0} move [Moves the cursor with the current settings] | !{0} press [Presses the button the cursor is currently over] | !{0} colorblind [Toggles colorblind mode] | On Twitch Plays this module uses a fake cursor that moves at a random fixed speed and strikes will not occur for deselecting the module";
+    private readonly string TwitchHelpMessage = @"!{0} <actions> [Makes the cursor perform the specified actions] | !{0} colorblind [Toggles colorblind mode] | On Twitch Plays this module uses a fake cursor that moves at a random fixed speed | Actions that the cursor can do are a press or movement, presses are specified with 'press' while movements are a direction in degrees from north and a time in seconds separated by a space | Actions can be chained, for example: !{0} 45 2.5; -80 5; press";
     #pragma warning restore 414
     IEnumerator ProcessTwitchCommand(string command)
     {
+        command = Regex.Replace(command, @"\s+", " ");
         if (Regex.IsMatch(command, @"^\s*colorblind|cb\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
         {
             yield return null;
             cb = !cb;
             yield break;
         }
-        if (Regex.IsMatch(command, @"^\s*press\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+        List<string> tpAngles = new List<string>();
+        List<string> tpTimes = new List<string>();
+        string[] parameters = command.Split(';');
+        for (int i = 0; i < parameters.Length; i++)
         {
-            if (reset)
-                yield return "sendtochaterror You cannot press a button while the module is resetting!";
-            else if (tpButton == -1)
-                yield return "sendtochaterror The cursor is not currently over a button!";
-            else
+            parameters[i] = parameters[i].Trim();
+            string[] args = parameters[i].Split(' ');
+            if (args.Length > 2 || (args.Length == 1 && !args[0].EqualsIgnoreCase("press")))
             {
-                yield return null;
-                buttons[tpButton].OnInteract();
+                yield return "sendtochaterror!f The specified action '" + parameters[i] + "' is invalid!";
+                yield break;
             }
-            yield break;
-        }
-        if (Regex.IsMatch(command, @"^\s*move\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
-        {
-            if (reset)
-                yield return "sendtochaterror You cannot move the cursor while the module is resetting!";
+            if (args.Length == 2)
+            {
+                int ang = -1;
+                if (!int.TryParse(args[0], out ang))
+                {
+                    yield return "sendtochaterror!f The specified action '" + parameters[i] + "' is invalid!";
+                    yield break;
+                }
+                float time = -1f;
+                if (!float.TryParse(args[1], out time))
+                {
+                    yield return "sendtochaterror!f The specified action '" + parameters[i] + "' is invalid!";
+                    yield break;
+                }
+                tpAngles.Add(ang.ToString());
+                tpTimes.Add(time.ToString());
+            }
             else
             {
-                yield return null;
+                tpAngles.Add("p");
+                tpTimes.Add("p");
+            }
+        }
+        yield return null;
+        for (int i = 0; i < parameters.Length; i++)
+        {
+            if (tpTimes[i] == "p")
+            {
+                if (tpButton != -1)
+                    buttons[tpButton].OnInteract();
+            }
+            else
+            {
+                Vector3 newRot = new Vector3(0, int.Parse(tpAngles[i]), 0);
+                tpAnchor.transform.localEulerAngles = newRot;
                 float t = 0f;
-                while (t < tpTime)
+                while (t < float.Parse(tpTimes[i]))
                 {
                     yield return null;
                     t += Time.deltaTime;
@@ -321,67 +342,6 @@ public class SimSenScript : MonoBehaviour {
                     }
                 }
             }
-            yield break;
-        }
-        if (Regex.IsMatch(command, @"^\s*test\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
-        {
-            yield return null;
-            tpTestCursor.SetActive(true);
-            float t = 0f;
-            while (t < tpTime)
-            {
-                yield return null;
-                t += Time.deltaTime;
-                if (TwitchShouldCancelCommand)
-                    break;
-                tpTestAnchor.Translate(Vector3.forward * Time.deltaTime * tpSpeed);
-            }
-            tpTestCursor.SetActive(false);
-            tpTestAnchor.localPosition = tpAnchor.localPosition;
-            if (TwitchShouldCancelCommand)
-                yield return "cancelled";
-            yield break;
-        }
-        string[] parameters = command.Split(' ');
-        if (Regex.IsMatch(parameters[0], @"^\s*time\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
-        {
-            if (parameters.Length == 1)
-                yield return "sendtochaterror Please specify a time in seconds!";
-            else if (parameters.Length > 2)
-                yield return "sendtochaterror Too many parameters!";
-            else
-            {
-                float time = -1;
-                if (!float.TryParse(parameters[1], out time))
-                {
-                    yield return "sendtochaterror!f The specified time '" + parameters[1] + "' is invalid!";
-                    yield break;
-                }
-                yield return null;
-                tpTime = time;
-            }
-            yield break;
-        }
-        if (Regex.IsMatch(parameters[0], @"^\s*angle\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
-        {
-            if (parameters.Length == 1)
-                yield return "sendtochaterror Please specify the angle in degrees!";
-            else if (parameters.Length > 2)
-                yield return "sendtochaterror Too many parameters!";
-            else
-            {
-                int angle = -1;
-                if (!int.TryParse(parameters[1], out angle))
-                {
-                    yield return "sendtochaterror!f The specified angle '" + parameters[1] + "' is invalid!";
-                    yield break;
-                }
-                yield return null;
-                Vector3 newRot = new Vector3(0, angle, 0);
-                tpAnchor.transform.localEulerAngles = newRot;
-                tpTestAnchor.transform.localEulerAngles = newRot;
-            }
-            yield break;
         }
     }
 }
