@@ -47,7 +47,6 @@ public class SimSenScript : MonoBehaviour {
         else
             allHit = Physics.RaycastAll(new Ray(tpCursor.transform.position, -transform.up));
         bool found = false;
-        bool found2 = false;
         bool tpHitWall = false;
         for (int i = 0; i < allHit.Length; i++)
         {
@@ -63,15 +62,6 @@ public class SimSenScript : MonoBehaviour {
                         break;
                     }
                 }
-                for (int j = 9; j < colliders.Length; j++)
-                {
-                    if (colliders[j].name == allHit[i].collider.name)
-                    {
-                        tpButton = j - 9;
-                        found2 = true;
-                        break;
-                    }
-                }
             }
         }
         if (mazereveal[8].enabled && !reset && (!found || tpHitWall))
@@ -83,8 +73,6 @@ public class SimSenScript : MonoBehaviour {
                 tpOffField = true;
             else
                 tpOffField = false;
-            if (!found2)
-                tpButton = -1;
         }
     }
 
@@ -264,7 +252,6 @@ public class SimSenScript : MonoBehaviour {
     private bool TwitchPlaysActive;
     private bool tpOffField;
     private float tpSpeed;
-    private int tpButton = -1;
     #pragma warning disable 414
     private readonly string TwitchHelpMessage = @"!{0} <actions> [Makes the cursor perform the specified actions] | !{0} colorblind [Toggles colorblind mode] | On Twitch Plays this module uses a fake cursor that moves at a random fixed speed | Actions that the cursor can do are a press or movement, presses are specified with 'press' while movements are a direction in degrees from north and a time in seconds separated by a space | Actions can be chained, for example: !{0} 45 2.5; -80 5; press";
     #pragma warning restore 414
@@ -317,6 +304,19 @@ public class SimSenScript : MonoBehaviour {
         {
             if (tpTimes[i] == "p")
             {
+                RaycastHit[] btnHit = Physics.RaycastAll(new Ray(tpCursor.transform.position, -transform.up));
+                int tpButton = -1;
+                for (int k = 0; k < btnHit.Length; k++)
+                {
+                    for (int j = 9; j < colliders.Length; j++)
+                    {
+                        if (colliders[j].name == btnHit[k].collider.name)
+                        {
+                            tpButton = j - 9;
+                            break;
+                        }
+                    }
+                }
                 if (tpButton != -1)
                     buttons[tpButton].OnInteract();
             }
