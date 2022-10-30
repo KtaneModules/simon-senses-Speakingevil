@@ -45,7 +45,7 @@ public class SimSenScript : MonoBehaviour {
         if (!TwitchPlaysActive)
             allHit = Physics.RaycastAll(Camera.main.ScreenPointToRay(Input.mousePosition));
         else
-            allHit = Physics.RaycastAll(new Ray(tpCursor.transform.position, -transform.up));
+            allHit = Physics.RaycastAll(new Ray(tpPoint.position, -transform.up));
         bool found = false;
         bool tpHitWall = false;
         for (int i = 0; i < allHit.Length; i++)
@@ -249,6 +249,7 @@ public class SimSenScript : MonoBehaviour {
     //twitch plays
     public GameObject tpCursor;
     public Transform tpAnchor;
+    public Transform tpPoint;
     private bool TwitchPlaysActive;
     private bool tpOffField;
     private float tpSpeed;
@@ -304,7 +305,7 @@ public class SimSenScript : MonoBehaviour {
         {
             if (tpTimes[i] == "p")
             {
-                RaycastHit[] btnHit = Physics.RaycastAll(new Ray(tpCursor.transform.position, -transform.up));
+                RaycastHit[] btnHit = Physics.RaycastAll(new Ray(tpPoint.position, -transform.up));
                 int tpButton = -1;
                 for (int k = 0; k < btnHit.Length; k++)
                 {
